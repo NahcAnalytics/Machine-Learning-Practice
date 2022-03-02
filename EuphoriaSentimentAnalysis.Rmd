@@ -1,0 +1,80 @@
+---
+title: "Euphoria"
+author: "Nahc Analytics"
+date: "3/2/2022"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+```{r setup, include=FALSE}
+library(rtweet);library(dplyr);library(tidytext);library(textdata);library(tidyr);library(tinytex)
+```
+
+```{r, #Euphoria twitter pull}
+data <- search_tweets("#Euphoria lang:en",
+                      include_rts = FALSE,
+                      n = 18000,
+                      retryonratelimit = TRUE)
+
+
+```
+
+
+```{r, Extracting words from tweets}
+tweet_words = data %>%
+  group_by(screen_name) %>%
+  unnest_tokens(output = word, input = text) %>%
+  ungroup() %>%
+  mutate(row=1:n())
+as.data.frame(tweet_words)[1:50,c('screen_name','word')]
+
+```
+Examining 17,968 tweets on #Euphoria using the Bing lexicon provided by [https://www.cs.uic.edu/~liub/FBS/sentiment-analysis.html]
+```{r, word classification with Bing lexicon}
+library(ggplot2)
+tweet_words %>%
+  inner_join(get_sentiments('bing'),by = 'word')%>%
+  select('sentiment')%>%
+  group_by(sentiment)%>%
+  summarize(freq=n())%>%
+  ungroup()%>%
+  ggplot(aes(x=sentiment,y=freq))+geom_bar(position='dodge',stat='identity',fill=c('darkred','darkgreen'))+
+  coord_flip()
+```
+Examining with the NRC lexicon created by Mohammad, Saif M. and Turney, Peter D. [http://saifmohammad.com/WebPages/lexicons.html]
+
+```{R, visualizing emotions in tweets}
+library(RColorBrewer)
+tweet_words %>%
+  inner_join(get_sentiments('nrc'),by = 'word')%>%
+  select('sentiment')%>%
+  group_by(sentiment)%>%
+  summarize(freq=n())%>%
+  ungroup() %>%
+  ggplot(aes(x=reorder(sentiment,desc(freq)),y=freq,fill=freq))+geom_bar(position='dodge',stat='identity')+xlab('Sentiment')+ylab('Frequency')+coord_flip()
+```
+
+```{r, cleaning location data}
+data_locations = data[!data$location=='',]
+
+euphoria_locations = data_locations %>%
+  select(screen_name,location)
+euphoria_locations = distinct(euphoria_locations)
+
+euphoria_locations = subset(euphoria_locations, location != "she/her")
+```
+```{r}
+euphoria_locations %>%
+  count(location, sort = TRUE) %>%
+  mutate(location = reorder(location, n)) %>%
+  na.omit() %>%
+  top_n(20) %>%
+  ggplot(aes(x = location, y = n)) +
+  geom_col() +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Location",
+      title = "Where Twitter users are from - unique locations ")
+```
+
